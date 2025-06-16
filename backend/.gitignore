@@ -1,0 +1,29 @@
+# Compiled binaries
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+*.exe
+*.dll
+*.app
+*.pdb
+
+# Configuration
+appsettings.Development.json
+appsettings.Local.json
+
+# Logs
+*.log
+
+# IDE/config
+.vscode/
+*.ncrunch*
+*.resharper*
+_ReSharper*/
+*.sln.cache
