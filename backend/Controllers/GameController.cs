@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.Models;
+using backend.Data;
+using System.Text.Json;
 
 namespace backend.Controllers
 {
@@ -7,26 +9,43 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class GameController : ControllerBase
     {
-        [HttpGet]
-        public IActionResult GetTest()
+        private readonly AppDbContext _context;
+
+        public GameController(AppDbContext context)
         {
-            return Ok("API está funcionando 🎉");
+            _context = context;
         }
 
         [HttpPost]
-        public IActionResult PostGameData([FromBody] GameData data)
+        public async Task<IActionResult> PostGameData([FromBody] GameDataDTO data)
         {
-            // Apenas exibe no console por enquanto
-            Console.WriteLine("Jogo recebido:");
-            Console.WriteLine($"Vencedor: {data.Winner}");
-            Console.WriteLine($"Empate: {data.Draw}");
-            Console.WriteLine("Marcações:");
-            foreach (var mark in data.Marks)
+            var game = new GameData
             {
-                Console.WriteLine($"Posição {mark.Key}: {mark.Value}");
-            }
+                Winner = data.Winner,
+                Draw = data.Draw,
+                MarksJson = JsonSerializer.Serialize(data.Marks)
+            };
 
-            return Ok(new { message = "Jogo salvo com sucesso!" });
+            _context.Games.Add(game);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Jogo salvo com sucesso no banco!" });
         }
+
+        [HttpGet("all")]
+        public IActionResult GetAllGames()
+        {
+            var games = _context.Games.ToList();
+            return Ok(games);
+        }
+
+    }
+
+    // DTO separado para receber do React
+    public class GameDataDTO
+    {
+        public string? Winner { get; set; }
+        public bool Draw { get; set; }
+        public Dictionary<string, string> Marks { get; set; } = new();
     }
 }

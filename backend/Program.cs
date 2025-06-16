@@ -1,4 +1,7 @@
 using Microsoft.OpenApi.Models;
+using backend.Data;
+using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +28,9 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+options.UseNpgsql("Host=localhost;Database=GameDb;Username=postgres;Password=1234"));
 
 var app = builder.Build();
 
