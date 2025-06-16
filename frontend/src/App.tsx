@@ -1,3 +1,4 @@
+import axios from "axios"
 import { useEffect, useState } from 'react'
 import './App.css'
 
@@ -57,6 +58,19 @@ function App() {
         }
       }
     }
+
+  }
+  const saveGame = async () => {
+    try {
+      const response = await axios.post("http://localhost:5206/api/game", {
+        marks,
+        winner,
+        draw: !!draw,
+      });
+      console.log("Dados enviados com sucesso:", response.data);
+    } catch (error) {
+      console.error("Erro ao salvar o jogo:", error);
+    }
   }
 
   /* Função que reseta o jogo */
@@ -70,15 +84,31 @@ function App() {
   useEffect(() => {
     const winner = getWinner()
 
-    if (winner) {
-      setWinner(winner)
+  if (winner) {
+    setWinner(winner);
+    saveGame(); // ✅ envia quando há vencedor
+  } else if (Object.keys(marks).length === 9 && !winner) {
+    setDraw(true);
+    saveGame(); // ✅ envia em caso de empate
+  }
+
+    // Enviar para o console os dados que queremos mandar para a API
+    if (winner || Object.keys(marks).length === 9) {
+      const dataToSend = {
+        marks: marks,
+        winner: winner ?? null,
+        draw: !winner
+      }
+
+      console.log("Dados do jogo:", JSON.stringify(dataToSend, null, 2));
     }
+
   }, [marks])
 
   return (
     <div className='container'>
       {draw && <h1>Empate</h1>}
-      {winner && !draw && <h1>{winner} ganhou</h1>}
+      {winner && !draw && <h1>"{winner}" ganhou</h1>}
       {!gameOver && <p>É a vez de "{turn}"</p>}
       {gameOver && <button onClick={reset}>Jogar novamente</button>}
 
