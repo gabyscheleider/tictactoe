@@ -3,106 +3,116 @@ import { useEffect, useState } from 'react'
 import './App.css'
 
 type Players = "O" | "X"
+type Game = {
+  id: number;
+  winner: string | null;
+  draw: boolean;
+};
 
 function App() {
-  const [turn, setTurn] = useState<Players>("O")  
+  const [turn, setTurn] = useState<Players>("O")
+  const [firstPlayer, setFirstPlayer] = useState<Players>("O")
   const [winner, setWinner] = useState<Players | null>(null)
-  const [draw, setDraw] = useState<boolean | null>(null)
+  const [draw, setDraw] = useState<boolean>(false)
+  const [gameSaved, setGameSaved] = useState(false)
 
-  const [marks,setMarks] = useState<{[Key: string ]: Players}>({})
-  const gameOver = !!winner || !!draw;
+  const [marks, setMarks] = useState<{ [Key: string]: Players }>({})
+  const gameOver = !!winner || draw
 
-  const getSquares = () => {
-      return new Array(9).fill(true)
-  }
+  const getSquares = () => new Array(9).fill(true)
 
   const play = (index: number) => {
-    if (marks[index] || gameOver){
-      return
-    }
-    setMarks(prev => ({...prev, [index]: turn}))
-    setTurn(prev => prev === "O" ? "X" : "O")
+    if (marks[index] || gameOver) return
+    setMarks(prev => ({ ...prev, [index]: turn }))
+    setTurn(prev => (prev === "O" ? "X" : "O"))
   }
 
-  const getCellPlayer = (index: number) => {
-    if(!marks[index]){
-      return;
-    }
-
-    return marks[index]
-  }
+  const getCellPlayer = (index: number) => marks[index]
 
   const getWinner = () => {
     const victoryLines = [
       [0, 1, 2],
       [3, 4, 5],
       [6, 7, 8],
-
       [0, 4, 8],
       [2, 4, 6],
       [0, 3, 6],
-
       [1, 4, 7],
       [2, 5, 8]
     ]
 
-    for (const line of victoryLines){
-      const [a, b, c] = line
-
-      /* Função que verifica o vencedor */
-      if (marks[a] && marks[a] === marks[b] && marks[a] === marks[c]){
+    for (const [a, b, c] of victoryLines) {
+      if (marks[a] && marks[a] === marks[b] && marks[a] === marks[c]) {
         return marks[a]
-      } else {
-        if (Object.keys(marks).length === 9){
-          setDraw(true)
-        }
       }
     }
 
+    return null
   }
-  const saveGame = async () => {
+
+  const saveGame = async (
+    winnerParam: Players | null,
+    drawParam: boolean,
+    marksParam: { [key: string]: Players }
+  ) => {
     try {
       const response = await axios.post("http://localhost:5206/api/game", {
-        marks,
-        winner,
-        draw: !!draw,
-      });
-      console.log("Dados enviados com sucesso:", response.data);
+        winner: winnerParam,
+        draw: drawParam,
+        marks: marksParam,
+      })
+      console.log("Dados enviados com sucesso:", response.data)
     } catch (error) {
-      console.error("Erro ao salvar o jogo:", error);
+      console.error("Erro ao salvar o jogo:", error)
     }
   }
 
-  /* Função que reseta o jogo */
   const reset = () => {
-    setTurn(marks[0] === "O" ? "X" : "O") /* Indica quem começa na rodada */
+    const nextFirst = firstPlayer === "O" ? "X" : "O"
+    setFirstPlayer(nextFirst)
+    setTurn(nextFirst)
     setMarks({})
     setWinner(null)
-    setDraw(null)
+    setDraw(false)
+    setGameSaved(false)
+  }
+
+  const [savedWinners, setSavedWinners] = useState<Game[]>([])
+
+  const fetchWinners = async () => {
+    try {
+      const response = await axios.get("http://localhost:5206/api/game/all")
+      const winnersOnly = response.data.filter((game: Game) => game.winner)
+      setSavedWinners(winnersOnly)
+    } catch (error) {
+      console.error("Erro ao buscar vencedores:", error)
+    }
   }
 
   useEffect(() => {
-    const winner = getWinner()
+    const winnerResult = getWinner()
+    const isBoardFull = Object.keys(marks).length === 9
 
-  if (winner) {
-    setWinner(winner);
-    saveGame(); // ✅ envia quando há vencedor
-  } else if (Object.keys(marks).length === 9 && !winner) {
-    setDraw(true);
-    saveGame(); // ✅ envia em caso de empate
-  }
-
-    // Enviar para o console os dados que queremos mandar para a API
-    if (winner || Object.keys(marks).length === 9) {
-      const dataToSend = {
-        marks: marks,
-        winner: winner ?? null,
-        draw: !winner
+    if (!gameSaved && (winnerResult || isBoardFull)) {
+      if (winnerResult) {
+        setWinner(winnerResult)
+        setDraw(false)
+        saveGame(winnerResult, false, marks)
+      } else {
+        setWinner(null)
+        setDraw(true)
+        saveGame(null, true, marks)
       }
+      setGameSaved(true)
 
-      console.log("Dados do jogo:", JSON.stringify(dataToSend, null, 2));
+      console.log("Dados do jogo:", JSON.stringify({
+        marks: marks,
+        winner: winnerResult ?? null,
+        draw: !winnerResult
+      }, null, 2))
     }
 
+    fetchWinners()
   }, [marks])
 
   return (
@@ -112,12 +122,31 @@ function App() {
       {!gameOver && <p>É a vez de "{turn}"</p>}
       {gameOver && <button onClick={reset}>Jogar novamente</button>}
 
-      <div className={`board ${gameOver ? "gameOver" : null}`}>
-        {getSquares().map((_,i) => (
-          <div className={`cell ${getCellPlayer(i)}`} onClick={() => play(i)}>
+      <div className={`board ${gameOver ? "gameOver" : ""}`}>
+        {getSquares().map((_, i) => (
+          <div
+            key={i}
+            className={`cell ${getCellPlayer(i)}`}
+            onClick={() => play(i)}
+          >
             {marks[i]}
           </div>
         ))}
+      </div>
+
+      <div className="saved-winners">
+        <h2>Vencedores anteriores:</h2>
+        {savedWinners.length === 0 ? (
+          <p>Nenhum vencedor registrado ainda.</p>
+        ) : (
+          <ul>
+            {savedWinners.map((game) => (
+              <li key={game.id}>
+                Jogo #{game.id}: {game.winner}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
